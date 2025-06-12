@@ -1,0 +1,49 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'SERVICE_NAME',
+            choices: ['user-service', 'order-service'],
+            description: 'Select which microservice to deploy'
+        )
+    }
+
+    environment {
+        IMAGE_NAME = "shubhamsom/${params.SERVICE_NAME}"
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/shubhamsingh011/ci-cd-microservices.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${IMAGE_NAME}:latest ./${params.SERVICE_NAME}"
+            }
+        }
+
+        stage('Push to DockerHub') {
+            steps {
+                withDockerRegistry([credentialsId: 'dockerhub-creds', url: '']) {
+                    sh "docker push ${IMAGE_NAME}:latest"
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh "kubectl apply -f ./${params.SERVICE_NAME}/k8s/deployment.yaml"
+            }
+        }
+    }
+}
+
+// Replace These:
+//YOUR_USERNAME → your GitHub username
+// shubhamsom/${params.SERVICE_NAME} → update with your DockerHub repo name if it's different
+//dockerhub-creds should match Jenkins credential ID (when you create Jenkins later)
